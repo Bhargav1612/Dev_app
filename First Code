@@ -1,0 +1,85 @@
+import UIKit
+
+class BookmarkViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+
+    var bookmarks: [String] = [] // This will store the bookmarked pages
+    let tableView = UITableView()
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        self.title = "Bookmarks"
+        setupTableView()
+        loadBookmarks()
+    }
+    
+    // MARK: - Table View Setup
+    func setupTableView() {
+        view.addSubview(tableView)
+        
+        // Setting constraints for the table view
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+            tableView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor),
+            tableView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor)
+        ])
+        
+        tableView.delegate = self
+        tableView.dataSource = self
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "BookmarkCell")
+    }
+
+    // MARK: - Loading Bookmarks
+    func loadBookmarks() {
+        // Fetch the bookmarks from local storage or JSON response
+        // Example: loading from UserDefaults
+        if let savedBookmarks = UserDefaults.standard.stringArray(forKey: "bookmarksKey") {
+            self.bookmarks = savedBookmarks
+        }
+        tableView.reloadData()
+    }
+    
+    // MARK: - UITableViewDataSource
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return bookmarks.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "BookmarkCell", for: indexPath)
+        cell.textLabel?.text = bookmarks[indexPath.row]
+        return cell
+    }
+
+    // MARK: - UITableViewDelegate
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let selectedPage = bookmarks[indexPath.row]
+        
+        // Handle the mapping to the pageType
+        openPage(pageType: selectedPage)
+    }
+    
+    // MARK: - Open Page Based on pageType
+    func openPage(pageType: String) {
+        // Here, you'll handle the mapping of the pageType from the JSON
+        // For example, you might want to push a new view controller based on the pageType
+        // Replace with your page navigation logic:
+        print("Navigating to page with pageType: \(pageType)")
+    }
+}
+
+
+
+.....
+
+
+func addBookmark(pageType: String) {
+    var bookmarks = UserDefaults.standard.stringArray(forKey: "bookmarksKey") ?? []
+    if !bookmarks.contains(pageType) {
+        bookmarks.append(pageType)
+        UserDefaults.standard.set(bookmarks, forKey: "bookmarksKey")
+    }
+}
