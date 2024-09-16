@@ -1,5 +1,39 @@
 import UIKit
 
+class SimpleTextViewController: UIViewController {
+    
+    // Creating the label programmatically
+    private let label: UILabel = {
+        let lbl = UILabel()
+        lbl.text = "Hello, this is a simple text view!"
+        lbl.textAlignment = .center
+        lbl.font = UIFont.systemFont(ofSize: 24)
+        lbl.translatesAutoresizingMaskIntoConstraints = false // Enable Auto Layout
+        return lbl
+    }()
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        view.backgroundColor = .white
+        
+        // Add the label to the view
+        view.addSubview(label)
+        
+        // Set up the label's constraints (position in the view)
+        setupConstraints()
+    }
+    
+    // Set up Auto Layout constraints for the label
+    private func setupConstraints() {
+        label.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
+        label.centerYAnchor.constraint(equalTo: view.centerYAnchor).isActive = true
+    }
+}
+
+
+import UIKit
+
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
 
     @IBOutlet weak var tableView: UITableView! // Outlet for the table view
