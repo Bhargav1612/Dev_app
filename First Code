@@ -1,162 +1,53 @@
 import UIKit
 
-class SimpleTextViewController: UIViewController {
-    
-    // Creating the label programmatically
-    private let label: UILabel = {
-        let lbl = UILabel()
-        lbl.text = "Hello, this is a simple text view!"
-        lbl.textAlignment = .center
-        lbl.font = UIFont.systemFont(ofSize: 24)
-        lbl.translatesAutoresizingMaskIntoConstraints = false // Enable Auto Layout
-        return lbl
-    }()
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        
-        view.backgroundColor = .white
-        
-        // Add the label to the view
-        view.addSubview(label)
-        
-        // Set up the label's constraints (position in the view)
-        setupConstraints()
-    }
-    
-    // Set up Auto Layout constraints for the label
-    private func setupConstraints() {
-        label.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
-        label.centerYAnchor.constraint(equalTo: view.centerYAnchor).isActive = true
-    }
-}
+class BookmarksViewController: UIViewController, UITableViewDataSource {
 
-
-import UIKit
-
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
-
-    @IBOutlet weak var tableView: UITableView! // Outlet for the table view
-    
-    let items = ["Apple", "Banana", "Orange", "Pineapple", "Grapes"] // Sample data
+    var tableView: UITableView!
+    var bookmarks: [[String: Any]] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // Set the delegate and data source
-        tableView.delegate = self
+
+        // Set up the table view
+        tableView = UITableView(frame: view.bounds)
         tableView.dataSource = self
-        
-        // Register a basic cell
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
-    }
-
-    // MARK: - UITableViewDataSource Methods
-
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return items.count // Return the number of items in the array
-    }
-
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        cell.textLabel?.text = items[indexPath.row] // Set the cell's text label
-        return cell
-    }
-    
-    // MARK: - UITableViewDelegate Methods
-
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print("Selected item: \(items[indexPath.row])") // Print the selected item
-        tableView.deselectRow(at: indexPath, animated: true) // Deselect the row after selection
-    }
-}
-
-
-
-
-..................
-import UIKit
-
-class BookmarkViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
-
-    var bookmarks: [String] = [] // This will store the bookmarked pages
-    let tableView = UITableView()
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        
-        self.title = "Bookmarks"
-        setupTableView()
-        loadBookmarks()
-    }
-    
-    // MARK: - Table View Setup
-    func setupTableView() {
         view.addSubview(tableView)
-        
-        // Setting constraints for the table view
-        tableView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            tableView.leftAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leftAnchor),
-            tableView.rightAnchor.constraint(equalTo: view.safeAreaLayoutGuide.rightAnchor)
-        ])
-        
-        tableView.delegate = self
-        tableView.dataSource = self
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "BookmarkCell")
+
+        // Call the method to load the data
+        newData()
     }
 
-    // MARK: - Loading Bookmarks
-    func loadBookmarks() {
-        // Fetch the bookmarks from local storage or JSON response
-        // Example: loading from UserDefaults
-        if let savedBookmarks = UserDefaults.standard.stringArray(forKey: "bookmarksKey") {
-            self.bookmarks = savedBookmarks
+    // MARK: - Parse the JSON data
+    override func newData() {
+        // Assuming loadObject?.pageJson contains your JSON data
+        guard let data = loadObject?.pageJson as? [String: Any],
+              let page = data["Page"] as? [String: Any],
+              let bookmarksArray = page["bookmarks"] as? [[String: Any]] else {
+            print("Failed to parse JSON data")
+            return
         }
+
+        // Store the bookmarks in the array for the table view
+        self.bookmarks = bookmarksArray
         tableView.reloadData()
     }
-    
+
     // MARK: - UITableViewDataSource
-    
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return bookmarks.count
     }
-    
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "BookmarkCell", for: indexPath)
-        cell.textLabel?.text = bookmarks[indexPath.row]
-        return cell
-    }
-
-    // MARK: - UITableViewDelegate
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
-        let selectedPage = bookmarks[indexPath.row]
+        let cell = tableView.dequeueReusableCell(withIdentifier: "cell") ?? UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
         
-        // Handle the mapping to the pageType
-        openPage(pageType: selectedPage)
-    }
-    
-    // MARK: - Open Page Based on pageType
-    func openPage(pageType: String) {
-        // Here, you'll handle the mapping of the pageType from the JSON
-        // For example, you might want to push a new view controller based on the pageType
-        // Replace with your page navigation logic:
-        print("Navigating to page with pageType: \(pageType)")
-    }
-}
+        // Get the bookmark data for the current row
+        let bookmark = bookmarks[indexPath.row]
+        
+        // Display "actionType" and "pageType" in the cell's textLabel and "requestURL" in the detailTextLabel
+        cell.textLabel?.text = "\(bookmark["actionType"] as? String ?? "") - \(bookmark["pageType"] as? String ?? "")"
+        cell.detailTextLabel?.text = bookmark["requestURL"] as? String
 
-
-
-.....
-
-
-func addBookmark(pageType: String) {
-    var bookmarks = UserDefaults.standard.stringArray(forKey: "bookmarksKey") ?? []
-    if !bookmarks.contains(pageType) {
-        bookmarks.append(pageType)
-        UserDefaults.standard.set(bookmarks, forKey: "bookmarksKey")
+        return cell
     }
 }
