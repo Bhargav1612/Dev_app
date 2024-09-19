@@ -1,35 +1,42 @@
 import UIKit
 
+// Define the data model for Bookmark
+struct PageData: Decodable {
+    struct Bookmark: Decodable {
+        let requestURL: String
+    }
+    
+    let bookmarks: [Bookmark]
+}
+
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
 
-    let tableView = UITableView()  // Table view to display the bookmarks
-    var items: [String] = []       // Array to hold bookmark titles
+    let tableView = UITableView()
+    var items: [String] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
         newDataBuild()
     }
     
-    override func newDataBuild() {
-        // Load the JSON data here using optional chaining
-        if let bookmarks = loadObject?.pageJSON?["Page"]?["bookmarks"] as? [[String: Any]] {
-            // Extract "pageTitle" from each bookmark using optional chaining
-            items = bookmarks.compactMap {
-                $0["extraParameters"]?["pageTitle"] as? String
-            }
-        } else {
-            print("Error: Could not load bookmarks or bookmarks are empty.")
+    func newDataBuild() {
+        // Assuming loadObject?.pageJSON contains JSON data in a valid format
+        if let data = try? JSONSerialization.data(withJSONObject: loadObject?.pageJSON ?? [:], options: []),
+           let pageData = try? JSONDecoder().decode(PageData.self, from: data) {
+            
+            // Extract requestURL from bookmarks
+            items = pageData.bookmarks.map { $0.requestURL }
         }
         
         // Set the delegate and data source for the table view
         tableView.delegate = self
         tableView.dataSource = self
 
-        // Register the cell
+        // Register the cell and add table view to the view
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
-
-        // Add the table view to the view and set constraints
         view.addSubview(tableView)
+        
+        // Set constraints for table view
         tableView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -38,7 +45,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
         
-        // Reload the table view to display the data
+        // Reload table view to display data
         tableView.reloadData()
     }
 
@@ -49,12 +56,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        cell.textLabel?.text = items[indexPath.row]  // Set the text for each bookmark title
+        cell.textLabel?.text = items[indexPath.row]  // Set requestURL in table view
         return cell
     }
     
     // UITableViewDelegate method
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print("Selected \(items[indexPath.row])")
+        print("Selected URL: \(items[indexPath.row])")
     }
 }
