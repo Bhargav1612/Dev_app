@@ -1,53 +1,60 @@
 import UIKit
 
-class BookmarksViewController: UIViewController, UITableViewDataSource {
+class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
 
-    var tableView: UITableView!
-    var bookmarks: [[String: Any]] = []
+    let tableView = UITableView()  // Table view to display the bookmarks
+    var items: [String] = []       // Array to hold bookmark titles
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        // Set up the table view
-        tableView = UITableView(frame: view.bounds)
-        tableView.dataSource = self
-        view.addSubview(tableView)
-
-        // Call the method to load the data
-        newData()
+        newDataBuild()
     }
-
-    // MARK: - Parse the JSON data
-    override func newData() {
-        // Assuming loadObject?.pageJson contains your JSON data
-        guard let data = loadObject?.pageJson as? [String: Any],
-              let page = data["Page"] as? [String: Any],
-              let bookmarksArray = page["bookmarks"] as? [[String: Any]] else {
-            print("Failed to parse JSON data")
-            return
+    
+    override func newDataBuild() {
+        // Load the JSON data here using optional chaining
+        if let bookmarks = loadObject?.pageJSON?["Page"]?["bookmarks"] as? [[String: Any]] {
+            // Extract "pageTitle" from each bookmark using optional chaining
+            items = bookmarks.compactMap {
+                $0["extraParameters"]?["pageTitle"] as? String
+            }
+        } else {
+            print("Error: Could not load bookmarks or bookmarks are empty.")
         }
+        
+        // Set the delegate and data source for the table view
+        tableView.delegate = self
+        tableView.dataSource = self
 
-        // Store the bookmarks in the array for the table view
-        self.bookmarks = bookmarksArray
+        // Register the cell
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+
+        // Add the table view to the view and set constraints
+        view.addSubview(tableView)
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
+        
+        // Reload the table view to display the data
         tableView.reloadData()
     }
 
-    // MARK: - UITableViewDataSource
-
+    // UITableViewDataSource methods
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return bookmarks.count
+        return items.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cell") ?? UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
-        
-        // Get the bookmark data for the current row
-        let bookmark = bookmarks[indexPath.row]
-        
-        // Display "actionType" and "pageType" in the cell's textLabel and "requestURL" in the detailTextLabel
-        cell.textLabel?.text = "\(bookmark["actionType"] as? String ?? "") - \(bookmark["pageType"] as? String ?? "")"
-        cell.detailTextLabel?.text = bookmark["requestURL"] as? String
-
+        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+        cell.textLabel?.text = items[indexPath.row]  // Set the text for each bookmark title
         return cell
+    }
+    
+    // UITableViewDelegate method
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        print("Selected \(items[indexPath.row])")
     }
 }
