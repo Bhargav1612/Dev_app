@@ -1,67 +1,113 @@
 import UIKit
 
-// Define the data model for Bookmark
-struct PageData: Decodable {
-    struct Bookmark: Decodable {
-        let requestURL: String
-    }
+class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextFieldDelegate {
+
+    let textField: UITextField = {
+        let tf = UITextField()
+        tf.placeholder = "Enter your search"
+        tf.borderStyle = .roundedRect
+        tf.translatesAutoresizingMaskIntoConstraints = false
+        return tf
+    }()
     
-    let bookmarks: [Bookmark]
-}
-
-class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
-
-    let tableView = UITableView()
-    var items: [String] = []
+    let tableView: UITableView = {
+        let tv = UITableView()
+        tv.translatesAutoresizingMaskIntoConstraints = false
+        return tv
+    }()
+    
+    var recentSearches: [String] = []
+    let searchesKey = "recentSearches"
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        newDataBuild()
-    }
-    
-    func newDataBuild() {
-        // Assuming loadObject?.pageJSON contains JSON data in a valid format
-        if let data = try? JSONSerialization.data(withJSONObject: loadObject?.pageJSON ?? [:], options: []),
-           let pageData = try? JSONDecoder().decode(PageData.self, from: data) {
-            
-            // Extract requestURL from bookmarks
-            items = pageData.bookmarks.map { $0.requestURL }
-        }
-        
-        // Set the delegate and data source for the table view
+        view.backgroundColor = .white
+        setupUI()
         tableView.delegate = self
         tableView.dataSource = self
-
-        // Register the cell and add table view to the view
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        textField.delegate = self
+        loadRecentSearches()
+    }
+    
+    func setupUI() {
+        view.addSubview(textField)
         view.addSubview(tableView)
         
-        // Set constraints for table view
-        tableView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+            textField.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            textField.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 40),
+            textField.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.8),
+            textField.heightAnchor.constraint(equalToConstant: 40),
+            
+            tableView.topAnchor.constraint(equalTo: textField.bottomAnchor, constant: 20),
+            tableView.leftAnchor.constraint(equalTo: view.leftAnchor),
+            tableView.rightAnchor.constraint(equalTo: view.rightAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-        
-        // Reload table view to display data
+    }
+    
+    func loadRecentSearches() {
+        if let searches = UserDefaults.standard.array(forKey: searchesKey) as? [String] {
+            recentSearches = searches
+        }
+    }
+    
+    func saveRecentSearches() {
+        UserDefaults.standard.set(recentSearches, forKey: searchesKey)
+    }
+    
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        guard let searchText = textField.text, !searchText.isEmpty else {
+            return false
+        }
+        textField.resignFirstResponder()
+        recentSearches.insert(searchText, at: 0)
+        if recentSearches.count > 20 {
+            recentSearches.removeLast()
+        }
+        saveRecentSearches()
         tableView.reloadData()
+        textField.text = ""
+        return true
     }
-
-    // UITableViewDataSource methods
+    
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return items.count
+         return recentSearches.count
     }
-
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        cell.textLabel?.text = items[indexPath.row]  // Set requestURL in table view
+      
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {  
+        let cell = UITableViewCell(style: .default, reuseIdentifier: "cell")
+        cell.textLabel?.text = recentSearches[indexPath.row]
         return cell
     }
     
-    // UITableViewDelegate method
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print("Selected URL: \(items[indexPath.row])")
+        tableView.deselectRow(at: indexPath, animated: true)
     }
+}
+
+
+
+zzzzzzz
+
+import UIKit
+
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+
+    var window: UIWindow?
+
+    func scene(_ scene: UIScene, 
+               willConnectTo session: UISceneSession, 
+               options connectionOptions: UIScene.ConnectionOptions) {
+                   
+        guard let windowScene = (scene as? UIWindowScene) else { return }
+        
+        let window = UIWindow(windowScene: windowScene)
+        let rootVC = ViewController()
+        window.rootViewController = rootVC
+        self.window = window
+        window.makeKeyAndVisible()
+    }
+
+    // Other scene delegate methods can remain default or empty
 }
