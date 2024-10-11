@@ -1,90 +1,63 @@
-func saveSearchTerm(_ searchTerm: String) {
-    var searchHistory = UserDefaults.standard.array(forKey: "searchHistory") as? [String] ?? []
+var searchHistoryTableView: UITableView!
+var searchHistory: [String] = UserDefaults.standard.stringArray(forKey: "searchHistory") ?? []
 
-    if !searchHistory.contains(searchTerm) {
-        searchHistory.append(searchTerm)
-        UserDefaults.standard.set(searchHistory, forKey: "searchHistory")
-        print("Saved search term: \(searchTerm)")
+// Number of rows
+public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    if tableView == searchHistoryTableView {
+        return searchHistory.count
     }
+    return searchMoleculesInfo?.count ?? 0 // For searchSuggestionsTableView
 }
 
-func setupSearchHistoryTableView() {
-    searchHistoryTableView = TableView(frame: .zero, style: .plain)
-    searchHistoryTableView.translatesAutoresizingMaskIntoConstraints = false
-    searchHistoryTableView.rowHeight = UITableView.automaticDimension
-    searchHistoryTableView.backgroundColor = .clear
-    searchHistoryTableView.dataSource = self
-    searchHistoryTableView.delegate = self
-    searchHistoryTableView.separatorStyle = .none
-    self.overlayView.addSubview(searchHistoryTableView)
-
-    NSLayoutConstraint.activate([
-        searchHistoryTableView.topAnchor.constraint(equalTo: overlayView.topAnchor),
-        searchHistoryTableView.leftAnchor.constraint(equalTo: overlayView.leftAnchor),
-        overlayView.rightAnchor.constraint(equalTo: searchHistoryTableView.rightAnchor),
-        searchHistoryTableView.heightAnchor.constraint(equalTo: overlayView.heightAnchor, multiplier: 0.45)
-    ])
+// Cell for row
+public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    if tableView == searchHistoryTableView {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "HistoryCell", for: indexPath)
+        cell.textLabel?.text = searchHistory[indexPath.row] // Display search history
+        return cell
+    }
+    
+    // Handle cell for searchSuggestionsTableView
+    guard let moleculeInfo = searchMoleculesInfo?[indexPath.row],
+          let cell = tableView.dequeueReusableCell(withIdentifier: moleculeInfo.identifier) else {
+        return UITableViewCell()
+    }
+    
+    // Configure the cell for suggestions
+    (cell as? MoleculeViewProtocol)?.reset()
+    cell.isUserInteractionEnabled = true
+    (cell as? MoleculeListCellProtocol)?.setLines(with: searchTemplateModel?.line, delegateObject: delegateObject(), additionalData: nil, indexPath: indexPath)
+    (cell as? MoleculeViewProtocol)?.set(with: moleculeInfo.molecule, delegateObject: delegateObject(), nil)
+    (cell as? SomeViewProtocol)?.updateView(tableView.bounds.width)
+    cell.layoutIfNeeded()
+    return cell
 }
 
 
-func toggleTableViewsBasedOnSearch() {
+public override func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+    handleSearchDoneAction(textField.text)
+    return true
+}
+
+func updateTableViewVisibility() {
     if searchTextField?.text?.isEmpty == true {
         searchHistoryTableView.isHidden = false
         searchSuggestionsTableView.isHidden = true
-        loadSearchHistoryFromUserDefaults()
     } else {
         searchHistoryTableView.isHidden = true
         searchSuggestionsTableView.isHidden = false
     }
 }
 
-func loadSearchHistoryFromUserDefaults() {
-    let searchHistory = UserDefaults.standard.array(forKey: "searchHistory") as? [String] ?? []
-    searchMoleculesInfo = searchHistory.map { term in
-        return (identifier: "historyCell", class: UITableViewCell.self, molecule: SearchHistoryMoleculeModel(term: term))
-    }
-    searchHistoryTableView.reloadData()
+public override func textFieldDidChangeSelection(_ textField: UITextField) {
+    updateTableViewVisibility()
 }
 
 
-override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-    if tableView == searchHistoryTableView {
-        return searchMoleculesInfo?.count ?? 0
-    } else if tableView == searchSuggestionsTableView {
-        return searchMoleculesInfo?.count ?? 0
-    }
-    return 0
+override func viewDidLoad() {
+    super.viewDidLoad()
+    setupSearchSuggestionsTableView()
+    setupSearchHistoryTableView() // Add this line
+    // Other setup code...
 }
 
-override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-    if tableView == searchHistoryTableView {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "historyCell", for: indexPath)
-        cell.textLabel?.text = (searchMoleculesInfo?[indexPath.row].molecule as? SearchHistoryMoleculeModel)?.term
-        return cell
-    } else if tableView == searchSuggestionsTableView {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "suggestionCell", for: indexPath)
-        // Configure suggestion cell
-        return cell
-    }
-    return UITableViewCell()
-}
-
-
-class SearchHistoryMoleculeModel: ListItemModelProtocol, MoleculeModelProtocol {
-    var term: String
-    init(term: String) {
-        self.term = term
-    }
-}
-
-
-public override func textFieldDidBeginEditing(_ textField: UITextField) {
-    toggleTableViewsBasedOnSearch()
-}
-
-public override func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-    if let searchTerm = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !searchTerm.isEmpty {
-        saveSearchTerm(searchTerm)
-    }
-    return true
-}
