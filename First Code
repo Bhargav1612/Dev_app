@@ -1,81 +1,103 @@
-import UIKit
+var searchHistoryTableView: UITableView!
+var searchHistory: [String] = [] // Array to store history
 
-class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextFieldDelegate {
 
-    @IBOutlet weak var searchTextField: UITextField!
-    @IBOutlet weak var recentSearchesTableView: UITableView!
+func setupSearchHistoryTableView() {
+    searchHistoryTableView = UITableView(frame: .zero, style: .plain)
+    searchHistoryTableView.delegate = self
+    searchHistoryTableView.dataSource = self
+    searchHistoryTableView.translatesAutoresizingMaskIntoConstraints = false
+    searchHistoryTableView.register(UITableViewCell.self, forCellReuseIdentifier: "SearchHistoryCell")
+    view.addSubview(searchHistoryTableView)
     
-    var recentSearches: [String] = []
-    let searchesKey = "recentSearches"
+    // Set constraints similar to searchSuggestionsTableView
+    NSLayoutConstraint.activate([
+        searchHistoryTableView.topAnchor.constraint(equalTo: searchTextField.bottomAnchor),
+        searchHistoryTableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+        searchHistoryTableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        searchHistoryTableView.heightAnchor.constraint(equalToConstant: 200)
+    ])
+    
+    searchHistoryTableView.isHidden = true // Initially hidden
+}
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .white
-        setupTableView()
-        loadRecentSearches()
-        searchTextField.delegate = self
+
+
+func loadSearchHistory() {
+    if let savedHistory = UserDefaults.standard.array(forKey: "SearchHistory") as? [String] {
+        searchHistory = savedHistory
+    } else {
+        searchHistory = []
+    }
+    searchHistoryTableView.reloadData()
+}
+
+
+func saveSearchTermToHistory(_ searchTerm: String) {
+    // Ensure no duplicates
+    if !searchHistory.contains(searchTerm) {
+        searchHistory.append(searchTerm)
     }
     
-    func setupTableView() {
-        recentSearchesTableView.delegate = self
-        recentSearchesTableView.dataSource = self
-        recentSearchesTableView.tableFooterView = UIView() // Remove empty cell separators
-    }
-    
-    func loadRecentSearches() {
-        if let searches = UserDefaults.standard.array(forKey: searchesKey) as? [String] {
-            recentSearches = searches
-        }
-    }
-    
-    func saveRecentSearches() {
-        UserDefaults.standard.set(recentSearches, forKey: searchesKey)
-    }
-    
-    @IBAction func searchTextFieldEditingDidEnd(_ sender: UITextField) {
-        guard let searchText = sender.text, !searchText.trimmingCharacters(in: .whitespaces).isEmpty else {
-            return
-        }
-        
-        // Add search text to recent searches
-        recentSearches.insert(searchText, at: 0)
-        
-        // Optionally, limit the number of recent searches
-        if recentSearches.count > 20 {
-            recentSearches.removeLast()
-        }
-        
-        // Save to UserDefaults
-        saveRecentSearches()
-        
-        // Reload table view
-        recentSearchesTableView.reloadData()
-        
-        // Clear text field
-        sender.text = ""
-    }
-    
-    // MARK: - UITableViewDataSource Methods
-    
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-         return recentSearches.count
-    }
-      
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {  
-        let cell = tableView.dequeueReusableCell(withIdentifier: "SearchCell", for: indexPath)
-        cell.textLabel?.text = recentSearches[indexPath.row]
-        return cell
-    }
-    
-    // MARK: - UITableViewDelegate Methods
-    
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        // Deselect row with animation
-        tableView.deselectRow(at: indexPath, animated: true)
-        
-        // Optional: You can perform an action when a recent search is tapped
-        // For example, populate the search field or perform a new search
-        let selectedSearch = recentSearches[indexPath.row]
-        searchTextField.text = selectedSearch
+    // Save the array to UserDefaults
+    UserDefaults.standard.set(searchHistory, forKey: "SearchHistory")
+    UserDefaults.standard.synchronize()
+}
+
+
+public func textFieldDidBeginEditing(_ textField: UITextField) {
+    showOverlayView() // Already in your code
+    if searchTextField.text?.isEmpty == true {
+        searchHistoryTableView.isHidden = false
+        searchSuggestionsTableView.isHidden = true
+        loadSearchHistory() // Load history from UserDefaults
+    } else {
+        searchHistoryTableView.isHidden = true
+        searchSuggestionsTableView.isHidden = false
     }
 }
+
+public func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+    handleSearchDoneAction(textField.text)
+    
+    // Save the search term to UserDefaults
+    if let searchText = textField.text, !searchText.isEmpty {
+        saveSearchTermToHistory(searchText)
+    }
+    return true
+}
+
+
+
+
+public func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    if tableView == searchHistoryTableView {
+        return searchHistory.count
+    } else if tableView == searchSuggestionsTableView {
+        return searchMoleculesInfo?.count ?? 0
+    }
+    return 0
+}
+
+public func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    if tableView == searchHistoryTableView {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "SearchHistoryCell", for: indexPath)
+        cell.textLabel?.text = searchHistory[indexPath.row]
+        return cell
+    } else if tableView == searchSuggestionsTableView {
+        guard let moleculeInfo = searchMoleculesInfo?[indexPath.row],
+              let cell = tableView.dequeueReusableCell(withIdentifier: moleculeInfo.identifier)
+        else { return UITableViewCell() }
+        
+        // Set molecule data for search suggestions
+        (cell as? MoleculeViewProtocol)?.reset()
+        (cell as? MoleculeListCellProtocol)?.setLines(with: searchTemplateModel?.line, delegateObject: delegateObjectIVar, additionalData: nil, indexPath: indexPath)
+        (cell as? MoleculeViewProtocol)?.set(with: moleculeInfo.molecule, delegateObjectIVar, nil)
+        (cell as? SomeViewProtocol)?.updateView(tableView.bounds.width)
+        cell.layoutIfNeeded()
+        return cell
+    }
+    return UITableViewCell()
+}
+
+
