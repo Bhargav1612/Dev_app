@@ -1,92 +1,128 @@
-class YourSearchViewController: UIViewController, SFSpeechRecognizerDelegate {
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var recognitionTask: SFSpeechRecognitionTask?
-    private let audioEngine = AVAudioEngine()
+import UIKit
+import Speech
 
-    // Add a button for voice search
-    private let voiceSearchButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle("🎤", for: .normal) // A microphone emoji
-        button.addTarget(self, action: #selector(startVoiceSearch), for: .touchUpInside)
-        return button
-    }()
-}
+class SearchViewController: UIViewController, SFSpeechRecognizerDelegate {
 
+    var searchTextField: UITextField!
+    var voiceSearchButton: UIButton!
+    var speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))!
+    var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    var recognitionTask: SFSpeechRecognitionTask?
+    let audioEngine = AVAudioEngine()
 
+    override func viewDidLoad() {
+        super.viewDidLoad()
 
-override func viewDidLoad() {
-    super.viewDidLoad()
-    
-    // Add the voice search button to your view
-    view.addSubview(voiceSearchButton)
-    
-    // Set up constraints for the button (adjust according to your layout)
-    voiceSearchButton.translatesAutoresizingMaskIntoConstraints = false
-    NSLayoutConstraint.activate([
-        voiceSearchButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-        voiceSearchButton.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-    ])
-}
+        setupSearchTextField()
+        setupVoiceSearchButton()
+    }
 
+    func setupSearchTextField() {
+        searchTextField = UITextField()
+        searchTextField.placeholder = "Type your search..."
+        searchTextField.borderStyle = .roundedRect
+        view.addSubview(searchTextField)
+        
+        // Set constraints for searchTextField
+        searchTextField.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            searchTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            searchTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -50),
+            searchTextField.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+    }
 
-@objc private func startVoiceSearch() {
-    SFSpeechRecognizer.requestAuthorization { (authStatus) in
-        switch authStatus {
-        case .authorized:
-            self.startRecording()
-        case .denied, .restricted, .notDetermined:
-            print("Speech recognition authorization denied")
-        @unknown default:
-            fatalError()
+    func setupVoiceSearchButton() {
+        voiceSearchButton = UIButton(type: .system)
+        voiceSearchButton.setTitle("🎤", for: .normal)
+        
+        // Closure for handling the voice search action
+        voiceSearchButton.actionHandler = { [weak self] in
+            self?.startVoiceSearch()
+        }
+
+        view.addSubview(voiceSearchButton)
+
+        // Set constraints for voiceSearchButton
+        voiceSearchButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            voiceSearchButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            voiceSearchButton.centerYAnchor.constraint(equalTo: searchTextField.centerYAnchor)
+        ])
+    }
+
+    func startVoiceSearch() {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            recognitionRequest?.endAudio()
+        } else {
+            startListening()
         }
     }
-}
 
-private func startRecording() {
-    if recognitionTask != nil {
+    func startListening() {
+        // Ensure previous recognition tasks are canceled
         recognitionTask?.cancel()
         recognitionTask = nil
-    }
 
-    let audioSession = AVAudioSession.sharedInstance()
-    do {
-        try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        
+        // Configure audio session
+        let audioSession = AVAudioSession.sharedInstance()
+        try? audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+        try? audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        guard let recognitionRequest = recognitionRequest else { return }
-        
-        let inputNode = audioEngine.inputNode
+
+        guard let inputNode = audioEngine.inputNode else {
+            fatalError("Audio engine has no input node")
+        }
+
+        guard let recognitionRequest = recognitionRequest else {
+            fatalError("Unable to create recognition request")
+        }
+
         recognitionRequest.shouldReportPartialResults = true
-        
-        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { result, error in
+
+        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             if let result = result {
-                let spokenText = result.bestTranscription.formattedString
-                self.searchTextField?.text = spokenText // Populate text field with spoken text
+                // Update the text field with recognized speech
+                self?.searchTextField.text = result.bestTranscription.formattedString
             }
-            
-            if error != nil || (result?.isFinal ?? false) {
-                self.audioEngine.stop()
+
+            if let error = error {
+                print("Recognition error: \(error.localizedDescription)")
+                self?.audioEngine.stop()
                 inputNode.removeTap(onBus: 0)
-                self.recognitionRequest = nil
-                self.recognitionTask = nil
             }
         }
-        
+
+        // Setup audio input
         let recordingFormat = inputNode.outputFormat(forBus: 0)
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, when) in
-            recognitionRequest.append(buffer)
+            self.recognitionRequest?.append(buffer)
         }
-        
-        inputNode.play()
-    } catch {
-        print("Audio session error: \(error)")
+
+        audioEngine.prepare()
+        try? audioEngine.start()
     }
 }
 
+extension UIButton {
+    private struct AssociatedKeys {
+        static var ActionHandler = "actionHandler"
+    }
 
-public override func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-    handleSearchDoneAction(textField.text)
-    return true
+    var actionHandler: (() -> Void)? {
+        get {
+            return objc_getAssociatedObject(self, &AssociatedKeys.ActionHandler) as? (() -> Void)
+        }
+        set {
+            objc_setAssociatedObject(self, &AssociatedKeys.ActionHandler, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            addTarget(self, action: #selector(handleAction), for: .touchUpInside)
+        }
+    }
+
+    @objc private func handleAction() {
+        actionHandler?()
+    }
 }
+
