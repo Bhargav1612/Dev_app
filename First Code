@@ -1,93 +1,70 @@
-
+import UIKit
 import Speech
-import AVFoundation
 
-private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-private var recognitionTask: SFSpeechRecognitionTask?
-private let audioEngine = AVAudioEngine()
+class ViewController: UIViewController, SFSpeechRecognizerDelegate {
 
-private let voiceSearchButton: UIButton = {
-    let button = UIButton(type: .system)
-    button.setTitle("🎤", for: .normal)
-    button.translatesAutoresizingMaskIntoConstraints = false
-    return button
-}()
+    @IBOutlet weak var resultLabel: UILabel!
+    @IBOutlet weak var recordButton: UIButton!
 
-private func setupVoiceSearchButton() {
-    // Add button to the view
-    view.addSubview(voiceSearchButton)
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))!
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private let audioEngine = AVAudioEngine()
 
-    // Constraints for voice search button
-    NSLayoutConstraint.activate([
-        voiceSearchButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-        voiceSearchButton.centerYAnchor.constraint(equalTo: view.centerYAnchor)
-    ])
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        recordButton.isEnabled = false
+        speechRecognizer.delegate = self
+        SFSpeechRecognizer.requestAuthorization { authStatus in
+            DispatchQueue.main.async {
+                self.recordButton.isEnabled = (authStatus == .authorized)
+            }
+        }
+    }
 
-    // Closure for button click
-    voiceSearchButton.addAction(UIAction(handler: { [weak self] _ in
-        self?.startVoiceRecognition()
-    }), for: .touchUpInside)
-}
+    @IBAction func toggleRecording(_ sender: UIButton) {
+        if audioEngine.isRunning {
+            stopRecording()
+        } else {
+            startRecording()
+        }
+    }
 
+    private func startRecording() {
+        resultLabel.text = "Listening..."
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest = recognitionRequest else { return }
+        
+        recognitionRequest.shouldReportPartialResults = true
 
-private func startVoiceRecognition() {
-    if audioEngine.isRunning {
+        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
+            if let result = result {
+                self.resultLabel.text = result.bestTranscription.formattedString
+            }
+            if error != nil || (result?.isFinal == true) {
+                self.stopRecording()
+            }
+        }
+
+        let inputNode = audioEngine.inputNode
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, when in
+            recognitionRequest.append(buffer)
+        }
+
+        inputNode.prepare()
+        do {
+            try audioEngine.start()
+        } catch {
+            print("Audio Engine start error: \(error)")
+        }
+    }
+
+    private func stopRecording() {
         audioEngine.stop()
         recognitionRequest?.endAudio()
-    } else {
-        startListening()
+        recognitionTask?.cancel()
+        resultLabel.text = "Stopped Listening."
     }
 }
-
-private func startListening() {
-    // Ensure the speech recognizer is available
-    guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else {
-        print("Speech recognition is not available.")
-        return
-    }
-
-    // Prepare the audio engine
-    recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-    guard let recognitionRequest = recognitionRequest else { return }
-
-    let inputNode = audioEngine.inputNode
-    recognitionRequest.shouldReportPartialResults = true
-
-    recognitionTask = recognizer.recognitionTask(with: recognitionRequest, resultHandler: { [weak self] result, error in
-        if let result = result {
-            let recognizedText = result.bestTranscription.formattedString
-            self?.searchTextField?.text = recognizedText
-
-            if result.isFinal {
-                self?.performSearchDoneAction(searchString: recognizedText)
-                self?.stopListening()
-            }
-        } else if let error = error {
-            print("Speech recognition error: \(error.localizedDescription)")
-            self?.stopListening()
-        }
-    })
-
-    // Start the audio engine
-    let recordingFormat = inputNode.outputFormat(forBus: 0)
-    inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, _) in
-        recognitionRequest.append(buffer)
-    }
-
-    audioEngine.prepare()
-    do {
-        try audioEngine.start()
-    } catch {
-        print("Audio engine couldn't start: \(error.localizedDescription)")
-    }
-
-    print("Listening for voice input...")
-}
-
-private func stopListening() {
-    audioEngine.stop()
-    recognitionRequest?.endAudio()
-    recognitionTask?.cancel()
-}
-
