@@ -1,55 +1,46 @@
-var searchHistoryTableView: UITableView!
-
-func loadSearchHistory() -> [String] {
-    return UserDefaults.standard.stringArray(forKey: "searchHistory") ?? []
-}
-
-open override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-    if tableView == searchHistoryTableView {
-        return loadSearchHistory().count
-    } else if tableView == searchSuggestionsTableView {
-        return searchMoleculesInfo?.count ?? 0
-    }
-    return 0
-}
-
 open override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
     if tableView == searchHistoryTableView {
         let cell = tableView.dequeueReusableCell(withIdentifier: "HistoryCell") ?? UITableViewCell(style: .default, reuseIdentifier: "HistoryCell")
+        
+        // Retrieve the search history
         let searchHistory = loadSearchHistory()
-        cell.textLabel?.text = searchHistory[indexPath.row] // Display the search history
+        cell.textLabel?.text = searchHistory[indexPath.row]
+        
+        // Create the delete button (X)
+        let deleteButton = UIButton(type: .system)
+        deleteButton.setTitle("X", for: .normal)
+        deleteButton.setTitleColor(.red, for: .normal)
+        deleteButton.tag = indexPath.row
+        deleteButton.addTarget(self, action: #selector(deleteSearchHistoryItem(_:)), for: .touchUpInside)
+        
+        // Add the delete button to the cell
+        cell.accessoryView = deleteButton
+        
         return cell
     } else if tableView == searchSuggestionsTableView {
         guard let moleculeInfo = searchMoleculesInfo?[indexPath.row],
               let cell = tableView.dequeueReusableCell(withIdentifier: moleculeInfo.identifier) else {
             return UITableViewCell()
         }
-        // Set up your cell as before for searchSuggestionsTableView
+        // Molecule logic here...
         return cell
     }
-    return UITableViewCell() // Fallback
+    return UITableViewCell()
 }
 
 
-public override func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-    handleSearchDoneAction(textField.text)
-    
-    // Toggle the visibility of table views based on the search field's content
-    if let searchText = textField.text, searchText.isEmpty {
-        searchHistoryTableView.isHidden = false
-        searchSuggestionsTableView.isHidden = true
-        searchHistoryTableView.reloadData() // Load and display the history
-    } else {
-        searchHistoryTableView.isHidden = true
-        searchSuggestionsTableView.isHidden = false
-    }
-    
-    return true
-}
 
-override func viewDidLoad() {
-    super.viewDidLoad()
+@objc func deleteSearchHistoryItem(_ sender: UIButton) {
+    // Load current search history from UserDefaults
+    var searchHistory = loadSearchHistory()
     
-    setupSearchSuggestionsTableView()
-    setupSearchHistoryTableView() // Call to setup the history table
+    // Remove the item at the button's tag (indexPath.row)
+    let indexToRemove = sender.tag
+    searchHistory.remove(at: indexToRemove)
+    
+    // Save the updated search history back to UserDefaults
+    UserDefaults.standard.set(searchHistory, forKey: "searchHistory")
+    
+    // Reload the table view to reflect changes
+    searchHistoryTableView.reloadData()
 }
