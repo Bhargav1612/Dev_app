@@ -31,35 +31,37 @@ class ViewController: UIViewController, SFSpeechRecognizerDelegate {
     }
 
     private func startRecording() {
-        resultLabel.text = "Listening..."
-        audioEngine.inputNode.removeTap(onBus: 0)
-        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        guard let recognitionRequest = recognitionRequest else { return }
-        
-        recognitionRequest.shouldReportPartialResults = true
+    resultLabel.text = "Listening..."
+    audioEngine.inputNode.removeTap(onBus: 0)
+    recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+    guard let recognitionRequest = recognitionRequest else { return }
+    
+    recognitionRequest.shouldReportPartialResults = true
 
-        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
-            if let result = result {
-                self.resultLabel.text = result.bestTranscription.formattedString
-            }
-            if error != nil || (result?.isFinal == true) {
-                self.stopRecording()
-            }
+    recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
+        if let result = result {
+            self.resultLabel.text = result.bestTranscription.formattedString
         }
-
-        let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, when in
-            recognitionRequest.append(buffer)
-        }
-
-        inputNode.prepare()
-        do {
-            try audioEngine.start()
-        } catch {
-            print("Audio Engine start error: \(error)")
+        if error != nil || (result?.isFinal == true) {
+            self.stopRecording()
         }
     }
+
+    let inputNode = audioEngine.inputNode
+    let recordingFormat = inputNode.outputFormat(forBus: 0)
+    inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, when in
+        recognitionRequest.append(buffer)
+    }
+
+    // Prepare the audio engine here, not the input node
+    audioEngine.prepare()
+    do {
+        try audioEngine.start()
+    } catch {
+        print("Audio Engine start error: \(error)")
+    }
+}
+
 
     private func stopRecording() {
         audioEngine.stop()
