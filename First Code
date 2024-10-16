@@ -1,41 +1,92 @@
-open override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+class YourSearchViewController: UIViewController, SFSpeechRecognizerDelegate {
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private let audioEngine = AVAudioEngine()
 
-    if tableView == searchHistoryTableView {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "HistoryCell") ?? UITableViewCell(style: .default, reuseIdentifier: "HistoryCell")
-        let searchHistory = loadSearchHistory()
-        cell.textLabel?.text = searchHistory[indexPath.row]
-
-        // Add "X" button to the right side of the cell
-        let deleteButton = UIButton(type: .custom)
-        deleteButton.setTitle("X", for: .normal)
-        deleteButton.setTitleColor(.red, for: .normal)
-        deleteButton.frame = CGRect(x: cell.frame.width - 50, y: 10, width: 40, height: 40)
-        deleteButton.tag = indexPath.row // Set tag to identify the row for deletion
-        deleteButton.addTarget(self, action: #selector(deleteSearchHistoryItem(_:)), for: .touchUpInside)
-        
-        cell.addSubview(deleteButton)
-        return cell
-    } else if tableView == searchSuggestionsTableView {
-        // Existing code for suggestions
-        guard let moleculeInfo = searchMoleculesInfo?[indexPath.row],
-              let cell = tableView.dequeueReusableCell(withIdentifier: moleculeInfo.identifier) else { return UITableViewCell() }
-        // Molecule Logic
-        return cell
-    }
-    return UITableViewCell()
+    // Add a button for voice search
+    private let voiceSearchButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("🎤", for: .normal) // A microphone emoji
+        button.addTarget(self, action: #selector(startVoiceSearch), for: .touchUpInside)
+        return button
+    }()
 }
 
 
-@objc func deleteSearchHistoryItem(_ sender: UIButton) {
-    var searchHistory = loadSearchHistory()
 
-    // Remove the selected history item
-    let index = sender.tag
-    searchHistory.remove(at: index)
-
-    // Save updated history back to UserDefaults
-    UserDefaults.standard.set(searchHistory, forKey: "searchHistory")
+override func viewDidLoad() {
+    super.viewDidLoad()
     
-    // Reload the table view to reflect the changes
-    searchHistoryTableView.reloadData()
+    // Add the voice search button to your view
+    view.addSubview(voiceSearchButton)
+    
+    // Set up constraints for the button (adjust according to your layout)
+    voiceSearchButton.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+        voiceSearchButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+        voiceSearchButton.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+    ])
+}
+
+
+@objc private func startVoiceSearch() {
+    SFSpeechRecognizer.requestAuthorization { (authStatus) in
+        switch authStatus {
+        case .authorized:
+            self.startRecording()
+        case .denied, .restricted, .notDetermined:
+            print("Speech recognition authorization denied")
+        @unknown default:
+            fatalError()
+        }
+    }
+}
+
+private func startRecording() {
+    if recognitionTask != nil {
+        recognitionTask?.cancel()
+        recognitionTask = nil
+    }
+
+    let audioSession = AVAudioSession.sharedInstance()
+    do {
+        try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest = recognitionRequest else { return }
+        
+        let inputNode = audioEngine.inputNode
+        recognitionRequest.shouldReportPartialResults = true
+        
+        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { result, error in
+            if let result = result {
+                let spokenText = result.bestTranscription.formattedString
+                self.searchTextField?.text = spokenText // Populate text field with spoken text
+            }
+            
+            if error != nil || (result?.isFinal ?? false) {
+                self.audioEngine.stop()
+                inputNode.removeTap(onBus: 0)
+                self.recognitionRequest = nil
+                self.recognitionTask = nil
+            }
+        }
+        
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, when) in
+            recognitionRequest.append(buffer)
+        }
+        
+        inputNode.play()
+    } catch {
+        print("Audio session error: \(error)")
+    }
+}
+
+
+public override func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+    handleSearchDoneAction(textField.text)
+    return true
 }
