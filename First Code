@@ -2,6 +2,9 @@ open override func tableView(_ tableView: UITableView, cellForRowAt indexPath: I
     if tableView == searchHistoryTableView {
         let cell = tableView.dequeueReusableCell(withIdentifier: "HistoryCell") ?? UITableViewCell(style: .default, reuseIdentifier: "HistoryCell")
         
+        // Remove any existing subviews to avoid duplicates
+        cell.contentView.subviews.forEach { $0.removeFromSuperview() }
+        
         // Retrieve the search history
         let searchHistory = loadSearchHistory()
         cell.textLabel?.text = searchHistory[indexPath.row]
@@ -13,8 +16,25 @@ open override func tableView(_ tableView: UITableView, cellForRowAt indexPath: I
         deleteButton.tag = indexPath.row
         deleteButton.addTarget(self, action: #selector(deleteSearchHistoryItem(_:)), for: .touchUpInside)
         
-        // Add the delete button to the cell
-        cell.accessoryView = deleteButton
+        // Add the delete button to the cell's contentView
+        cell.contentView.addSubview(deleteButton)
+        
+        // Disable Auto Layout translation and set constraints
+        deleteButton.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            deleteButton.centerYAnchor.constraint(equalTo: cell.contentView.centerYAnchor),
+            deleteButton.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -16),
+            deleteButton.widthAnchor.constraint(equalToConstant: 30),
+            deleteButton.heightAnchor.constraint(equalToConstant: 30)
+        ])
+        
+        // Adjust the textLabel to leave space for the delete button
+        cell.textLabel?.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            cell.textLabel!.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 16),
+            cell.textLabel!.centerYAnchor.constraint(equalTo: cell.contentView.centerYAnchor),
+            cell.textLabel!.trailingAnchor.constraint(equalTo: deleteButton.leadingAnchor, constant: -8)
+        ])
         
         return cell
     } else if tableView == searchSuggestionsTableView {
@@ -26,21 +46,4 @@ open override func tableView(_ tableView: UITableView, cellForRowAt indexPath: I
         return cell
     }
     return UITableViewCell()
-}
-
-
-
-@objc func deleteSearchHistoryItem(_ sender: UIButton) {
-    // Load current search history from UserDefaults
-    var searchHistory = loadSearchHistory()
-    
-    // Remove the item at the button's tag (indexPath.row)
-    let indexToRemove = sender.tag
-    searchHistory.remove(at: indexToRemove)
-    
-    // Save the updated search history back to UserDefaults
-    UserDefaults.standard.set(searchHistory, forKey: "searchHistory")
-    
-    // Reload the table view to reflect changes
-    searchHistoryTableView.reloadData()
 }
