@@ -1,95 +1,96 @@
-import UIKit
 import Speech
-import AVFoundation
+import UIKit
 
-class SearchViewController: UIViewController {
+class : UIViewController, SFSpeechRecognizerDelegate {
     
-    @IBOutlet weak var searchTextField: UITextField!
-    @IBOutlet weak var searchHistoryTableView: UITableView!
-    @IBOutlet weak var searchSuggestionsTableView: UITableView!
-    
-    // Speech recognition properties
     private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
+    private let audioEngine = AVAudioEngine()
+    
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        // Other setup code...
-        dismissKeyboardTapGesture?.delegate = self
+        requestSpeechRecognitionPermissions()
     }
 
-    public func startVoiceRecognition() {
-        // Request authorization for speech recognition
+    func requestSpeechRecognitionPermissions() {
         SFSpeechRecognizer.requestAuthorization { authStatus in
-            guard authStatus == .authorized else {
-                print("Speech recognition not authorized.")
-                return
-            }
-            
-            self.setupAudioSession()
-            self.recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-            
-            self.recognitionTask = self.speechRecognizer?.recognitionTask(with: self.recognitionRequest!) { result, error in
-                guard let result = result else {
-                    if let error = error {
-                        print("Error during recognition: \(error.localizedDescription)")
-                    }
-                    return
-                }
-                
-                let spokenText = result.bestTranscription.formattedString
-                DispatchQueue.main.async {
-                    self.searchTextField?.text = spokenText
-                }
-                
-                // Trigger search once user stops speaking
-                if result.isFinal {
-                    self.performSearchDoneAction(spokenText)
-                    self.stopRecording() // Stop recording after final result
+            DispatchQueue.main.async {
+                switch authStatus {
+                case .authorized:
+                    print("Speech recognition authorized")
+                case .denied, .restricted, .notDetermined:
+                    print("Speech recognition not authorized")
+                @unknown default:
+                    fatalError()
                 }
             }
-            
-            self.startRecording()
         }
     }
-    
-    private func startRecording() {
-        guard let recognitionRequest = recognitionRequest else { return }
-        
+
+    func micIconPressed() {
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            recognitionRequest?.endAudio()
+        } else {
+            startListening()
+        }
+    }
+
+    func startListening() {
+        guard let speechRecognizer = SFSpeechRecognizer(), speechRecognizer.isAvailable else {
+            print("Speech recognizer is not available")
+            return
+        }
+
+
         let audioSession = AVAudioSession.sharedInstance()
         do {
             try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            let inputNode = audioSession.inputNode
-            
-            recognitionRequest.shouldReportPartialResults = true
-            
-            inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputNode.outputFormat(forBus: 0)) { (buffer, when) in
-                self.recognitionRequest?.append(buffer)
-            }
-            
-            inputNode.prepare()
-            try inputNode.startRunning()
         } catch {
-            print("Error starting audio session: \(error.localizedDescription)")
+            print("Audio session error: \(error)")
+        }
+
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest = recognitionRequest else {
+            print("Unable to create a recognition request")
+            return
+        }
+
+        let inputNode = audioEngine.inputNode
+        recognitionRequest.shouldReportPartialResults = true
+
+        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
+            if let result = result {
+                let recognizedText = result.bestTranscription.formattedString
+                self.searchTextField.text = recognizedText
+            }
+
+            if error != nil || result?.isFinal == true {
+                self.audioEngine.stop()
+                inputNode.removeTap(onBus: 0)
+                self.recognitionRequest = nil
+                self.recognitionTask = nil
+            }
+        }
+
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, when in
+            self.recognitionRequest?.append(buffer)
+        }
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+        } catch {
+            print("Audio engine couldn't start: \(error)")
         }
     }
-    
-    private func stopRecording() {
-        recognitionRequest?.endAudio()
-        recognitionTask?.finish()
-        recognitionTask = nil
-        recognitionRequest = nil
-    }
-    
-    public func performSearchDoneAction(_ searchInput: String?) {
-        // Existing search handling logic...
-        hideOverlayView()
-        dismissKeyboard()
-        // Example: saveSearchTerm(searchInput)
-    }
 
-    // Other existing methods...
+    func stopListening() {
+        audioEngine.stop()
+        recognitionRequest?.endAudio()
+    }
 }
