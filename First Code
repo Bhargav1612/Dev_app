@@ -1,106 +1,93 @@
-import Speech
 import UIKit
+import Speech
 
-class SearchViewController: UIViewController, SFSpeechRecognizerDelegate {
-    
-    // Declare speech recognition variables
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+class SearchListTemplate: UIViewController, SearchTextFieldDelegate, SFSpeechRecognizerDelegate {
+
+    var searchTextField: SearchTextField!
+
+    // For speech recognition
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))!
+    private let audioEngine = AVAudioEngine()
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
-    private let audioEngine = AVAudioEngine()
-    
-    @IBOutlet weak var searchTextField: UITextField!  // Assuming the text field is connected here
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        requestSpeechRecognitionPermissions()
+
+        // Assuming `searchTextField` is already added to the view
+        searchTextField.delegate = self
+        
+        configureSpeechRecognizer()
+        
+        // Additional search-related setup
     }
 
-    // 1. Request Speech Recognition and Microphone Permissions
-    func requestSpeechRecognitionPermissions() {
+    // Handle search icon tap
+    func searchIconTapped(searchText: String) {
+        performSearch(searchText: searchText)
+    }
+
+    // Handle mic icon tap and start voice recognition
+    func micIconTapped(tapGestureRecognizer: UITapGestureRecognizer) {
+        print("Microphone icon tapped, starting speech recognition.")
+        startListening() // Call the method to start speech recognition
+    }
+
+    private func configureSpeechRecognizer() {
+        speechRecognizer.delegate = self
         SFSpeechRecognizer.requestAuthorization { authStatus in
-            DispatchQueue.main.async {
-                switch authStatus {
-                case .authorized:
-                    print("Speech recognition authorized")
-                case .denied, .restricted, .notDetermined:
-                    print("Speech recognition not authorized")
-                @unknown default:
-                    fatalError()
-                }
+            switch authStatus {
+            case .authorized:
+                print("Speech recognition authorized")
+            case .denied, .restricted, .notDetermined:
+                print("Speech recognition not available")
+            @unknown default:
+                break
             }
         }
     }
 
-    // 2. This method will be triggered when the mic icon is pressed
-    func micIconPressed() {
+    private func startListening() {
+        // Check if the audio engine is already running
         if audioEngine.isRunning {
-            audioEngine.stop()
-            recognitionRequest?.endAudio()
-        } else {
-            startListening()
-        }
-    }
-
-    // 3. Start listening to user input
-    func startListening() {
-        // Check if speech recognition is available
-        guard let speechRecognizer = SFSpeechRecognizer(), speechRecognizer.isAvailable else {
-            print("Speech recognizer is not available")
+            stopListening()
             return
         }
 
-        // Prepare audio session
-        let audioSession = AVAudioSession.sharedInstance()
-        do {
-            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        } catch {
-            print("Audio session error: \(error)")
-        }
-
-        // Create a new recognition request
+        // Start the audio engine and request recognition
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        guard let recognitionRequest = recognitionRequest else {
-            print("Unable to create a recognition request")
-            return
-        }
-
-        // Start the audio engine
         let inputNode = audioEngine.inputNode
-        recognitionRequest.shouldReportPartialResults = true
+        recognitionRequest?.shouldReportPartialResults = true
 
-        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
+        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest!) { [weak self] result, error in
+            guard let self = self else { return }
             if let result = result {
                 let recognizedText = result.bestTranscription.formattedString
-                self.searchTextField.text = recognizedText
+                DispatchQueue.main.async {
+                    self.searchTextField.textField.text = recognizedText // Populate textField with recognized speech
+                }
             }
 
-            if error != nil || result?.isFinal == true {
-                self.audioEngine.stop()
-                inputNode.removeTap(onBus: 0)
-                self.recognitionRequest = nil
-                self.recognitionTask = nil
+            if error != nil || (result?.isFinal ?? false) {
+                self.stopListening()
             }
         }
 
-        // Start capturing audio
         let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, when in
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, when) in
             self.recognitionRequest?.append(buffer)
         }
 
         audioEngine.prepare()
-        do {
-            try audioEngine.start()
-        } catch {
-            print("Audio engine couldn't start: \(error)")
-        }
+        try? audioEngine.start()
     }
 
-    // 4. Stop recognition
-    func stopListening() {
+    private func stopListening() {
         audioEngine.stop()
         recognitionRequest?.endAudio()
+        recognitionTask?.cancel()
+    }
+
+    
     }
 }
