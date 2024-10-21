@@ -1,0 +1,91 @@
+private var voiceSearchOverlayView = UIView(frame: .zero)
+
+public override func viewDidLoad() {
+    super.viewDidLoad()
+
+    // Set up the grey background overlay
+    view.addSubview(overlayView)
+    overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+    overlayView.translatesAutoresizingMaskIntoConstraints = false
+    
+    // Pin overlayView to the edges of the screen
+    NSLayoutConstraint.activate([
+        overlayView.topAnchor.constraint(equalTo: view.topAnchor),
+        overlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        overlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+        overlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+    ])
+    
+    // Add voice search overlay to the main view
+    view.addSubview(voiceSearchOverlayView)
+    voiceSearchOverlayView.translatesAutoresizingMaskIntoConstraints = false
+
+    // Constraints for voiceSearchOverlayView to center it and give fixed dimensions
+    NSLayoutConstraint.activate([
+        voiceSearchOverlayView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+        voiceSearchOverlayView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+        voiceSearchOverlayView.heightAnchor.constraint(equalToConstant: 500),
+        voiceSearchOverlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+        voiceSearchOverlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+    ])
+
+    // Style voice search overlay
+    voiceSearchOverlayView.backgroundColor = UIColor.white // Make the overlay white for contrast
+    voiceSearchOverlayView.layer.cornerRadius = 40
+    voiceSearchOverlayView.clipsToBounds = true
+    voiceSearchOverlayView.layer.borderWidth = 1
+    voiceSearchOverlayView.layer.borderColor = UIColor.black.cgColor
+    voiceSearchOverlayView.layer.shadowOffset = CGSize(width: 4, height: 4)
+
+    // Add image and label
+    let myImage = UIImage(named: "bhargav")
+    let myImageView = UIImageView(image: myImage)
+    myImageView.translatesAutoresizingMaskIntoConstraints = false
+    voiceSearchOverlayView.addSubview(myImageView)
+    
+    let label = UILabel()
+    label.text = "Listening..."
+    label.translatesAutoresizingMaskIntoConstraints = false
+    voiceSearchOverlayView.addSubview(label)
+    
+    // Constraints for imageView and label
+    NSLayoutConstraint.activate([
+        myImageView.centerXAnchor.constraint(equalTo: voiceSearchOverlayView.centerXAnchor),
+        myImageView.topAnchor.constraint(equalTo: voiceSearchOverlayView.topAnchor, constant: 50),
+        myImageView.heightAnchor.constraint(equalToConstant: 60),
+        myImageView.widthAnchor.constraint(equalToConstant: 60),
+        
+        label.topAnchor.constraint(equalTo: myImageView.bottomAnchor, constant: 16),
+        label.centerXAnchor.constraint(equalTo: voiceSearchOverlayView.centerXAnchor)
+    ])
+
+    // Initially hide the voice search overlay
+    voiceSearchOverlayView.isHidden = true
+    overlayView.isHidden = true
+
+    // Hide any other views (like the table view) if necessary
+    setUpConstraintsOverlayView()
+    hideOverlayView()
+    setupSearchSuggestionsTableView()
+    dismissKeyboardTapGesture?.delegate = self
+}
+
+// Method to show the voice search overlay
+func showVoiceSearchOverlay() {
+    overlayView.isHidden = false
+    voiceSearchOverlayView.isHidden = false
+
+    // Optionally hide other views like the tableView
+    searchSuggestionsTableView?.isHidden = true
+    searchHistoryTableView?.isHidden = true
+}
+
+// Method to hide the voice search overlay
+func hideVoiceSearchOverlay() {
+    overlayView.isHidden = true
+    voiceSearchOverlayView.isHidden = true
+
+    // Show other views again after hiding the overlay
+    searchSuggestionsTableView?.isHidden = false
+    searchHistoryTableView?.isHidden = false
+}
