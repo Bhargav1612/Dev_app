@@ -1,93 +1,95 @@
-import UIKit
-import Speech
+@objc func lensIconTapped() {
+    let alert = UIAlertController(title: "Select Image", message: nil, preferredStyle: .actionSheet)
+    alert.addAction(UIAlertAction(title: "Camera", style: .default, handler: { _ in
+        self.openCamera()
+    }))
+    alert.addAction(UIAlertAction(title: "Photo Library", style: .default, handler: { _ in
+        self.openPhotoLibrary()
+    }))
+    alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+    present(alert, animated: true, completion: nil)
+}
 
-class SearchListTemplate: UIViewController, SearchTextFieldDelegate, SFSpeechRecognizerDelegate {
+// Open camera
+func openCamera() {
+    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+        let imagePicker = UIImagePickerController()
+        imagePicker.delegate = self
+        imagePicker.sourceType = .camera
+        imagePicker.allowsEditing = false
+        present(imagePicker, animated: true, completion: nil)
+    } else {
+        print("Camera not available")
+    }
+}
 
-    var searchTextField: SearchTextField!
+// Open photo library
+func openPhotoLibrary() {
+    let imagePicker = UIImagePickerController()
+    imagePicker.delegate = self
+    imagePicker.sourceType = .photoLibrary
+    imagePicker.allowsEditing = false
+    present(imagePicker, animated: true, completion: nil)
+}
 
-    // For speech recognition
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))!
-    private let audioEngine = AVAudioEngine()
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var recognitionTask: SFSpeechRecognitionTask?
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
 
-        // Assuming `searchTextField` is already added to the view
-        searchTextField.delegate = self
+
+
+
+
+
+
+
+extension YourViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        picker.dismiss(animated: true, completion: nil)
         
-        configureSpeechRecognizer()
-        
-        // Additional search-related setup
-    }
-
-    // Handle search icon tap
-    func searchIconTapped(searchText: String) {
-        performSearch(searchText: searchText)
-    }
-
-    // Handle mic icon tap and start voice recognition
-    func micIconTapped(tapGestureRecognizer: UITapGestureRecognizer) {
-        print("Microphone icon tapped, starting speech recognition.")
-        startListening() // Call the method to start speech recognition
-    }
-
-    private func configureSpeechRecognizer() {
-        speechRecognizer.delegate = self
-        SFSpeechRecognizer.requestAuthorization { authStatus in
-            switch authStatus {
-            case .authorized:
-                print("Speech recognition authorized")
-            case .denied, .restricted, .notDetermined:
-                print("Speech recognition not available")
-            @unknown default:
-                break
-            }
+        if let selectedImage = info[.originalImage] as? UIImage {
+            // Process the image for text recognition or object detection
+            detectText(in: selectedImage)
         }
     }
+    
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        picker.dismiss(animated: true, completion: nil)
+    }
+}
 
-    private func startListening() {
-        // Check if the audio engine is already running
-        if audioEngine.isRunning {
-            stopListening()
+
+
+
+
+
+import Vision
+
+func detectText(in image: UIImage) {
+    guard let cgImage = image.cgImage else { return }
+
+    let request = VNRecognizeTextRequest { (request, error) in
+        guard let observations = request.results as? [VNRecognizedTextObservation], error == nil else {
+            print("Error detecting text: \(String(describing: error))")
             return
         }
-
-        // Start the audio engine and request recognition
-        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        let inputNode = audioEngine.inputNode
-        recognitionRequest?.shouldReportPartialResults = true
-
-        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest!) { [weak self] result, error in
-            guard let self = self else { return }
-            if let result = result {
-                let recognizedText = result.bestTranscription.formattedString
-                DispatchQueue.main.async {
-                    self.searchTextField.textField.text = recognizedText // Populate textField with recognized speech
-                }
-            }
-
-            if error != nil || (result?.isFinal ?? false) {
-                self.stopListening()
-            }
+        
+        let detectedText = observations.compactMap { observation in
+            observation.topCandidates(1).first?.string
+        }.joined(separator: "\n")
+        
+        // Display detected text in the search field
+        DispatchQueue.main.async {
+            self.searchTextField?.text = detectedText
+            self.performSearchDoneAction(searchString: detectedText) // Perform the search
         }
-
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { (buffer, when) in
-            self.recognitionRequest?.append(buffer)
-        }
-
-        audioEngine.prepare()
-        try? audioEngine.start()
     }
 
-    private func stopListening() {
-        audioEngine.stop()
-        recognitionRequest?.endAudio()
-        recognitionTask?.cancel()
-    }
+    request.recognitionLevel = .accurate
+    request.usesLanguageCorrection = true
 
-    
+    let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+    do {
+        try handler.perform([request])
+    } catch {
+        print("Failed to perform text recognition: \(error)")
     }
 }
