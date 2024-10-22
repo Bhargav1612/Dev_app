@@ -1,95 +1,113 @@
-@objc func lensIconTapped() {
-    let alert = UIAlertController(title: "Select Image", message: nil, preferredStyle: .actionSheet)
-    alert.addAction(UIAlertAction(title: "Camera", style: .default, handler: { _ in
-        self.openCamera()
-    }))
-    alert.addAction(UIAlertAction(title: "Photo Library", style: .default, handler: { _ in
-        self.openPhotoLibrary()
-    }))
-    alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-    present(alert, animated: true, completion: nil)
-}
+import UIKit
+import AVFoundation
+import Vision
 
-// Open camera
-func openCamera() {
-    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+
+    var previewLayer: AVCaptureVideoPreviewLayer?
+    var captureSession: AVCaptureSession?
+    var requests = [VNRequest]()
+
+    @IBOutlet weak var objectRecognitionButton: UIButton!
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setupLiveCameraDetection()
+    }
+    
+    @IBAction func showPhotoSourceOptions(_ sender: UIButton) {
+        let alert = UIAlertController(title: "Choose Image Source", message: nil, preferredStyle: .actionSheet)
+        
+        alert.addAction(UIAlertAction(title: "Camera", style: .default, handler: { _ in
+            self.startLiveCameraDetection()
+        }))
+        
+        alert.addAction(UIAlertAction(title: "Photo Gallery", style: .default, handler: { _ in
+            self.showPhotoGallery()
+        }))
+        
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
+        
+        present(alert, animated: true, completion: nil)
+    }
+
+    func showPhotoGallery() {
         let imagePicker = UIImagePickerController()
         imagePicker.delegate = self
-        imagePicker.sourceType = .camera
-        imagePicker.allowsEditing = false
+        imagePicker.sourceType = .photoLibrary
         present(imagePicker, animated: true, completion: nil)
-    } else {
-        print("Camera not available")
     }
-}
-
-// Open photo library
-func openPhotoLibrary() {
-    let imagePicker = UIImagePickerController()
-    imagePicker.delegate = self
-    imagePicker.sourceType = .photoLibrary
-    imagePicker.allowsEditing = false
-    present(imagePicker, animated: true, completion: nil)
-}
-
-
-
-
-
-
-
-
-
-
-extension YourViewController: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+        guard let selectedImage = info[.originalImage] as? UIImage else { return }
+        detectObjectsInImage(image: selectedImage)
         picker.dismiss(animated: true, completion: nil)
+    }
+    
+    func detectObjectsInImage(image: UIImage) {
+        guard let ciImage = CIImage(image: image) else { return }
         
-        if let selectedImage = info[.originalImage] as? UIImage {
-            // Process the image for text recognition or object detection
-            detectText(in: selectedImage)
+        let request = VNRecognizeObjectsRequest { (request, error) in
+            DispatchQueue.main.async {
+                if let results = request.results as? [VNRecognizedObjectObservation] {
+                    for observation in results {
+                        print("Object detected: \(observation.labels.first?.identifier ?? "Unknown")")
+                    }
+                }
+            }
+        }
+        
+        let handler = VNImageRequestHandler(ciImage: ciImage, options: [:])
+        DispatchQueue.global().async {
+            try? handler.perform([request])
         }
     }
     
-    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-        picker.dismiss(animated: true, completion: nil)
-    }
-}
-
-
-
-
-
-
-import Vision
-
-func detectText(in image: UIImage) {
-    guard let cgImage = image.cgImage else { return }
-
-    let request = VNRecognizeTextRequest { (request, error) in
-        guard let observations = request.results as? [VNRecognizedTextObservation], error == nil else {
-            print("Error detecting text: \(String(describing: error))")
+    func setupLiveCameraDetection() {
+        captureSession = AVCaptureSession()
+        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else { return }
+        let videoInput = try? AVCaptureDeviceInput(device: videoCaptureDevice)
+        
+        if (captureSession?.canAddInput(videoInput!) ?? false) {
+            captureSession?.addInput(videoInput!)
+        } else {
             return
         }
         
-        let detectedText = observations.compactMap { observation in
-            observation.topCandidates(1).first?.string
-        }.joined(separator: "\n")
+        let output = AVCaptureVideoDataOutput()
+        output.setSampleBufferDelegate(self, queue: DispatchQueue(label: "videoQueue"))
         
-        // Display detected text in the search field
-        DispatchQueue.main.async {
-            self.searchTextField?.text = detectedText
-            self.performSearchDoneAction(searchString: detectedText) // Perform the search
+        if (captureSession?.canAddOutput(output) ?? false) {
+            captureSession?.addOutput(output)
         }
+        
+        previewLayer = AVCaptureVideoPreviewLayer(session: captureSession!)
+        previewLayer?.frame = view.layer.bounds
+        view.layer.insertSublayer(previewLayer!, at: 0)
     }
+    
+    func startLiveCameraDetection() {
+        captureSession?.startRunning()
+        
+        let request = VNRecognizeObjectsRequest { (request, error) in
+            DispatchQueue.main.async {
+                if let results = request.results as? [VNRecognizedObjectObservation] {
+                    for observation in results {
+                        print("Live object detected: \(observation.labels.first?.identifier ?? "Unknown")")
+                    }
+                }
+            }
+        }
+        
+        requests = [request]
+    }
+}
 
-    request.recognitionLevel = .accurate
-    request.usesLanguageCorrection = true
-
-    let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-    do {
-        try handler.perform([request])
-    } catch {
-        print("Failed to perform text recognition: \(error)")
+extension ViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        
+        let requestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+        try? requestHandler.perform(requests)
     }
 }
