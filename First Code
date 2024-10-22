@@ -1,3 +1,66 @@
+private var voiceSearchOverlay = UIView(frame: .zero)
+
+public override func viewDidLoad() {
+    super.viewDidLoad()
+
+    // Set up the grey background overlay
+    view.addSubview(overlayView)
+    overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+
+    // Add voice search overlay to the main view
+    view.addSubview(voiceSearchOverlay)
+    voiceSearchOverlay.translatesAutoresizingMaskIntoConstraints = false
+
+    // Modify the constraints to place the overlay at the bottom
+    NSLayoutConstraint.activate([
+        voiceSearchOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+        voiceSearchOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+        voiceSearchOverlay.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16), // Pin to bottom
+        voiceSearchOverlay.heightAnchor.constraint(equalToConstant: 200) // Adjust height if needed
+    ])
+
+    // Style the voice search overlay
+    voiceSearchOverlay.backgroundColor = UIColor.mfPaleGrey()
+    voiceSearchOverlay.layer.cornerRadius = 20
+    voiceSearchOverlay.clipsToBounds = true
+    voiceSearchOverlay.layer.borderWidth = 1
+    voiceSearchOverlay.layer.borderColor = UIColor.black.cgColor
+    voiceSearchOverlay.layer.shadowOffset = CGSize(width: 4, height: 4)
+
+    // Modify imageView and label constraints for the new layout
+    let logoImageView = UIImageView(image: UIImage(named: "bhargav"))
+    logoImageView.translatesAutoresizingMaskIntoConstraints = false
+    voiceSearchOverlay.addSubview(logoImageView)
+
+    let label = UILabel()
+    label.text = "Listening..."
+    label.translatesAutoresizingMaskIntoConstraints = false
+    voiceSearchOverlay.addSubview(label)
+
+    // Constraints for logoImageView and label
+    NSLayoutConstraint.activate([
+        logoImageView.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+        logoImageView.topAnchor.constraint(equalTo: voiceSearchOverlay.topAnchor, constant: 24),
+        logoImageView.heightAnchor.constraint(equalToConstant: 60),
+        logoImageView.widthAnchor.constraint(equalToConstant: 60),
+
+        label.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 16),
+        label.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor)
+    ])
+
+    // Initially hide the voice search overlay
+    voiceSearchOverlay.isHidden = true
+    overlayView.isHidden = true
+
+    setUpConstraintsOverlayView()
+    hideOverlayView()
+    setupSearchSuggestionsTableView()
+    dismissKeyboardTapGesture?.delegate = self
+}
+
+
+
+
 import UIKit
 import AVFoundation
 import Vision
