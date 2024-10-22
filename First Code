@@ -1,176 +1,85 @@
-private var voiceSearchOverlay = UIView(frame: .zero)
+private var backgroundOverlayView: UIView = {
+    let view = UIView(frame: .zero)
+    view.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+    view.translatesAutoresizingMaskIntoConstraints = false
+    view.isHidden = true
+    return view
+}()
+
+private var voiceSearchOverlay: UIView = {
+    let view = UIView(frame: .zero)
+    view.backgroundColor = UIColor.mfPaleGrey()
+    view.translatesAutoresizingMaskIntoConstraints = false
+    view.layer.cornerRadius = 40
+    view.layer.borderWidth = 1
+    view.layer.borderColor = UIColor.black.cgColor
+    view.layer.shadowOffset = CGSize(width: 4, height: 4)
+    view.clipsToBounds = true
+    view.isHidden = true
+    return view
+}()
 
 public override func viewDidLoad() {
     super.viewDidLoad()
 
-    // Set up the grey background overlay
-    view.addSubview(overlayView)
-    overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+    view.addSubview(backgroundOverlayView)
+    NSLayoutConstraint.activate([
+        backgroundOverlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+        backgroundOverlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        backgroundOverlayView.topAnchor.constraint(equalTo: view.topAnchor),
+        backgroundOverlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+    ])
+    
+    let tapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(dismissVoiceSearchOverlay))
+    backgroundOverlayView.addGestureRecognizer(tapGestureRecognizer)
 
-    // Add voice search overlay to the main view
     view.addSubview(voiceSearchOverlay)
-    voiceSearchOverlay.translatesAutoresizingMaskIntoConstraints = false
-
-    // Modify the constraints to place the overlay at the bottom
     NSLayoutConstraint.activate([
         voiceSearchOverlay.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
         voiceSearchOverlay.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-        voiceSearchOverlay.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16), // Pin to bottom
-        voiceSearchOverlay.heightAnchor.constraint(equalToConstant: 200) // Adjust height if needed
+        voiceSearchOverlay.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -16),
+        voiceSearchOverlay.heightAnchor.constraint(equalToConstant: 200)
     ])
-
-    // Style the voice search overlay
-    voiceSearchOverlay.backgroundColor = UIColor.mfPaleGrey()
-    voiceSearchOverlay.layer.cornerRadius = 20
-    voiceSearchOverlay.clipsToBounds = true
-    voiceSearchOverlay.layer.borderWidth = 1
-    voiceSearchOverlay.layer.borderColor = UIColor.black.cgColor
-    voiceSearchOverlay.layer.shadowOffset = CGSize(width: 4, height: 4)
-
-    // Modify imageView and label constraints for the new layout
-    let logoImageView = UIImageView(image: UIImage(named: "bhargav"))
+    
+    let logoImage = UIImage(named: "bhargav")
+    let logoImageView = UIImageView(image: logoImage)
     logoImageView.translatesAutoresizingMaskIntoConstraints = false
     voiceSearchOverlay.addSubview(logoImageView)
+    
+    NSLayoutConstraint.activate([
+        logoImageView.heightAnchor.constraint(equalToConstant: 60),
+        logoImageView.widthAnchor.constraint(equalToConstant: 60),
+        logoImageView.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+        logoImageView.topAnchor.constraint(equalTo: voiceSearchOverlay.topAnchor, constant: 20)
+    ])
 
     let label = UILabel()
     label.text = "Listening..."
     label.translatesAutoresizingMaskIntoConstraints = false
     voiceSearchOverlay.addSubview(label)
 
-    // Constraints for logoImageView and label
     NSLayoutConstraint.activate([
-        logoImageView.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
-        logoImageView.topAnchor.constraint(equalTo: voiceSearchOverlay.topAnchor, constant: 24),
-        logoImageView.heightAnchor.constraint(equalToConstant: 60),
-        logoImageView.widthAnchor.constraint(equalToConstant: 60),
-
-        label.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 16),
-        label.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor)
+        label.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+        label.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 16)
     ])
+}
 
-    // Initially hide the voice search overlay
+func micIconPressed() {
+    backgroundOverlayView.isHidden = false
+    voiceSearchOverlay.isHidden = false
+    startListening()
+}
+
+@objc private func dismissVoiceSearchOverlay() {
+    stopListening()
+    backgroundOverlayView.isHidden = true
     voiceSearchOverlay.isHidden = true
-    overlayView.isHidden = true
-
-    setUpConstraintsOverlayView()
-    hideOverlayView()
-    setupSearchSuggestionsTableView()
-    dismissKeyboardTapGesture?.delegate = self
 }
 
-
-
-
-import UIKit
-import AVFoundation
-import Vision
-
-class ViewController: UIViewController, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-
-    var previewLayer: AVCaptureVideoPreviewLayer?
-    var captureSession: AVCaptureSession?
-    var requests = [VNRequest]()
-
-    @IBOutlet weak var objectRecognitionButton: UIButton!
-    
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        setupLiveCameraDetection()
-    }
-    
-    @IBAction func showPhotoSourceOptions(_ sender: UIButton) {
-        let alert = UIAlertController(title: "Choose Image Source", message: nil, preferredStyle: .actionSheet)
-        
-        alert.addAction(UIAlertAction(title: "Camera", style: .default, handler: { _ in
-            self.startLiveCameraDetection()
-        }))
-        
-        alert.addAction(UIAlertAction(title: "Photo Gallery", style: .default, handler: { _ in
-            self.showPhotoGallery()
-        }))
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: nil))
-        
-        present(alert, animated: true, completion: nil)
-    }
-
-    func showPhotoGallery() {
-        let imagePicker = UIImagePickerController()
-        imagePicker.delegate = self
-        imagePicker.sourceType = .photoLibrary
-        present(imagePicker, animated: true, completion: nil)
-    }
-    
-    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-        guard let selectedImage = info[.originalImage] as? UIImage else { return }
-        detectObjectsInImage(image: selectedImage)
-        picker.dismiss(animated: true, completion: nil)
-    }
-    
-    func detectObjectsInImage(image: UIImage) {
-        guard let ciImage = CIImage(image: image) else { return }
-        
-        let request = VNRecognizeObjectsRequest { (request, error) in
-            DispatchQueue.main.async {
-                if let results = request.results as? [VNRecognizedObjectObservation] {
-                    for observation in results {
-                        print("Object detected: \(observation.labels.first?.identifier ?? "Unknown")")
-                    }
-                }
-            }
-        }
-        
-        let handler = VNImageRequestHandler(ciImage: ciImage, options: [:])
-        DispatchQueue.global().async {
-            try? handler.perform([request])
-        }
-    }
-    
-    func setupLiveCameraDetection() {
-        captureSession = AVCaptureSession()
-        guard let videoCaptureDevice = AVCaptureDevice.default(for: .video) else { return }
-        let videoInput = try? AVCaptureDeviceInput(device: videoCaptureDevice)
-        
-        if (captureSession?.canAddInput(videoInput!) ?? false) {
-            captureSession?.addInput(videoInput!)
-        } else {
-            return
-        }
-        
-        let output = AVCaptureVideoDataOutput()
-        output.setSampleBufferDelegate(self, queue: DispatchQueue(label: "videoQueue"))
-        
-        if (captureSession?.canAddOutput(output) ?? false) {
-            captureSession?.addOutput(output)
-        }
-        
-        previewLayer = AVCaptureVideoPreviewLayer(session: captureSession!)
-        previewLayer?.frame = view.layer.bounds
-        view.layer.insertSublayer(previewLayer!, at: 0)
-    }
-    
-    func startLiveCameraDetection() {
-        captureSession?.startRunning()
-        
-        let request = VNRecognizeObjectsRequest { (request, error) in
-            DispatchQueue.main.async {
-                if let results = request.results as? [VNRecognizedObjectObservation] {
-                    for observation in results {
-                        print("Live object detected: \(observation.labels.first?.identifier ?? "Unknown")")
-                    }
-                }
-            }
-        }
-        
-        requests = [request]
-    }
+func startListening() {
+    print("Voice search started...")
 }
 
-extension ViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
-    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        
-        let requestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
-        try? requestHandler.perform(requests)
-    }
+func stopListening() {
+    print("Voice search stopped.")
 }
