@@ -1,91 +1,59 @@
-private var voiceSearchOverlayView = UIView(frame: .zero)
+// Placeholder music animation view (to simulate the animation)
+private var musicAnimationView: UIView = {
+    let view = UIView(frame: .zero)
+    view.backgroundColor = UIColor.systemBlue // Replace this with actual animation
+    view.translatesAutoresizingMaskIntoConstraints = false
+    view.isHidden = false // Show initially, hide later
+    return view
+}()
 
-public override func viewDidLoad() {
-    super.viewDidLoad()
+// Add music animation to the voice search overlay
+voiceSearchOverlay.addSubview(musicAnimationView)
+NSLayoutConstraint.activate([
+    musicAnimationView.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+    musicAnimationView.topAnchor.constraint(equalTo: voiceSearchOverlay.topAnchor, constant: 16),
+    musicAnimationView.heightAnchor.constraint(equalToConstant: 60),
+    musicAnimationView.widthAnchor.constraint(equalToConstant: 60)
+])
 
-    // Set up the grey background overlay
-    view.addSubview(overlayView)
-    overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.7)
-    overlayView.translatesAutoresizingMaskIntoConstraints = false
-    
-    // Pin overlayView to the edges of the screen
+
+musicAnimationView.isHidden = false // Show music animation initially
+
+
+DispatchQueue.main.async {
+    self.musicAnimationView.isHidden = true // Hide animation after speech starts
+}
+
+private func showSearchOrTryAgainButtons() {
+    let searchButton = UIButton()
+    searchButton.setTitle("Search", for: .normal)
+    searchButton.backgroundColor = .systemBlue
+    searchButton.translatesAutoresizingMaskIntoConstraints = false
+    voiceSearchOverlay.addSubview(searchButton)
+    searchButton.addTarget(self, action: #selector(searchUsingTextFromVoice), for: .touchUpInside)
+
+    let tryAgainButton = UIButton()
+    tryAgainButton.setTitle("Try Again", for: .normal)
+    tryAgainButton.backgroundColor = .systemGray
+    tryAgainButton.translatesAutoresizingMaskIntoConstraints = false
+    voiceSearchOverlay.addSubview(tryAgainButton)
+    tryAgainButton.addTarget(self, action: #selector(startListening), for: .touchUpInside)
+
     NSLayoutConstraint.activate([
-        overlayView.topAnchor.constraint(equalTo: view.topAnchor),
-        overlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        overlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-        overlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
-    ])
-    
-    // Add voice search overlay to the main view
-    view.addSubview(voiceSearchOverlayView)
-    voiceSearchOverlayView.translatesAutoresizingMaskIntoConstraints = false
-
-    // Constraints for voiceSearchOverlayView to center it and give fixed dimensions
-    NSLayoutConstraint.activate([
-        voiceSearchOverlayView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-        voiceSearchOverlayView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-        voiceSearchOverlayView.heightAnchor.constraint(equalToConstant: 500),
-        voiceSearchOverlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-        voiceSearchOverlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
-    ])
-
-    // Style voice search overlay
-    voiceSearchOverlayView.backgroundColor = UIColor.white // Make the overlay white for contrast
-    voiceSearchOverlayView.layer.cornerRadius = 40
-    voiceSearchOverlayView.clipsToBounds = true
-    voiceSearchOverlayView.layer.borderWidth = 1
-    voiceSearchOverlayView.layer.borderColor = UIColor.black.cgColor
-    voiceSearchOverlayView.layer.shadowOffset = CGSize(width: 4, height: 4)
-
-    // Add image and label
-    let myImage = UIImage(named: "bhargav")
-    let myImageView = UIImageView(image: myImage)
-    myImageView.translatesAutoresizingMaskIntoConstraints = false
-    voiceSearchOverlayView.addSubview(myImageView)
-    
-    let label = UILabel()
-    label.text = "Listening..."
-    label.translatesAutoresizingMaskIntoConstraints = false
-    voiceSearchOverlayView.addSubview(label)
-    
-    // Constraints for imageView and label
-    NSLayoutConstraint.activate([
-        myImageView.centerXAnchor.constraint(equalTo: voiceSearchOverlayView.centerXAnchor),
-        myImageView.topAnchor.constraint(equalTo: voiceSearchOverlayView.topAnchor, constant: 50),
-        myImageView.heightAnchor.constraint(equalToConstant: 60),
-        myImageView.widthAnchor.constraint(equalToConstant: 60),
+        searchButton.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+        searchButton.topAnchor.constraint(equalTo: voiceSearchOverlay.topAnchor, constant: 100),
+        searchButton.widthAnchor.constraint(equalToConstant: 100),
+        searchButton.heightAnchor.constraint(equalToConstant: 40),
         
-        label.topAnchor.constraint(equalTo: myImageView.bottomAnchor, constant: 16),
-        label.centerXAnchor.constraint(equalTo: voiceSearchOverlayView.centerXAnchor)
+        tryAgainButton.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+        tryAgainButton.topAnchor.constraint(equalTo: searchButton.bottomAnchor, constant: 16),
+        tryAgainButton.widthAnchor.constraint(equalToConstant: 100),
+        tryAgainButton.heightAnchor.constraint(equalToConstant: 40)
     ])
-
-    // Initially hide the voice search overlay
-    voiceSearchOverlayView.isHidden = true
-    overlayView.isHidden = true
-
-    // Hide any other views (like the table view) if necessary
-    setUpConstraintsOverlayView()
-    hideOverlayView()
-    setupSearchSuggestionsTableView()
-    dismissKeyboardTapGesture?.delegate = self
 }
 
-// Method to show the voice search overlay
-func showVoiceSearchOverlay() {
-    overlayView.isHidden = false
-    voiceSearchOverlayView.isHidden = false
 
-    // Optionally hide other views like the tableView
-    searchSuggestionsTableView?.isHidden = true
-    searchHistoryTableView?.isHidden = true
-}
-
-// Method to hide the voice search overlay
-func hideVoiceSearchOverlay() {
-    overlayView.isHidden = true
-    voiceSearchOverlayView.isHidden = true
-
-    // Show other views again after hiding the overlay
-    searchSuggestionsTableView?.isHidden = false
-    searchHistoryTableView?.isHidden = false
+if error != nil || (result?.isFinal ?? false) {
+    self.stopListening()
+    self.showSearchOrTryAgainButtons() // Show buttons to proceed
 }
