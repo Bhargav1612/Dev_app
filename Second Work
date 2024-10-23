@@ -1,3 +1,15 @@
+let recognizedTextLabel = UILabel() // Create a new label for recognized text
+recognizedTextLabel.text = "Listening..."
+recognizedTextLabel.translatesAutoresizingMaskIntoConstraints = false
+recognizedTextLabel.textAlignment = .center // Center align the text
+voiceSearchOverlay.addSubview(recognizedTextLabel)
+
+NSLayoutConstraint.activate([
+    recognizedTextLabel.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+    recognizedTextLabel.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 16)
+])
+
+
 // Placeholder music animation view (to simulate the animation)
 private var musicAnimationView: UIView = {
     let view = UIView(frame: .zero)
