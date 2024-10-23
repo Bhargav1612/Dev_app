@@ -1,3 +1,11 @@
+NSLayoutConstraint.activate([
+    logoImageView.heightAnchor.constraint(equalToConstant: 60),
+    logoImageView.widthAnchor.constraint(equalToConstant: 60),
+    logoImageView.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+    logoImageView.centerYAnchor.constraint(equalTo: voiceSearchOverlay.centerYAnchor, constant: -30) // Centered vertically with a slight upward adjustment
+])
+
+
 let recognizedTextLabel = UILabel() // Create a new label for recognized text
 recognizedTextLabel.text = "Listening..."
 recognizedTextLabel.translatesAutoresizingMaskIntoConstraints = false
