@@ -1,3 +1,49 @@
+private func showSearchOrTryAgainButtons() {
+    // Hide the logo but keep the recognized text label visible
+    logoImageView.isHidden = true
+    recognizedTextLabel.isHidden = false
+
+    // Create and style buttons
+    let searchButton = UIButton(type: .custom)
+    searchButton.setTitle("Search", for: .normal)
+    searchButton.backgroundColor = UIColor.black
+    searchButton.setTitleColor(UIColor.white, for: .normal)
+    searchButton.layer.cornerRadius = 10
+    searchButton.addTarget(self, action: #selector(searchUsingTextFromVoice), for: .touchUpInside)
+
+    let tryAgainButton = UIButton(type: .custom)
+    tryAgainButton.setTitle("Try Again", for: .normal)
+    tryAgainButton.backgroundColor = UIColor.black
+    tryAgainButton.setTitleColor(UIColor.white, for: .normal)
+    tryAgainButton.layer.cornerRadius = 10
+    tryAgainButton.addTarget(self, action: #selector(micIconPressed), for: .touchUpInside)
+
+    // Add buttons to the overlay
+    voiceSearchOverlay.addSubview(searchButton)
+    voiceSearchOverlay.addSubview(tryAgainButton)
+
+    // Set up constraints for the buttons to display them side by side
+    searchButton.translatesAutoresizingMaskIntoConstraints = false
+    tryAgainButton.translatesAutoresizingMaskIntoConstraints = false
+
+    NSLayoutConstraint.activate([
+        // Position buttons side by side
+        searchButton.trailingAnchor.constraint(equalTo: tryAgainButton.leadingAnchor, constant: -20),
+        searchButton.centerYAnchor.constraint(equalTo: voiceSearchOverlay.centerYAnchor),
+        searchButton.heightAnchor.constraint(equalToConstant: 44),
+        searchButton.widthAnchor.constraint(equalToConstant: 120),
+
+        tryAgainButton.centerYAnchor.constraint(equalTo: searchButton.centerYAnchor),
+        tryAgainButton.heightAnchor.constraint(equalTo: searchButton.heightAnchor),
+        tryAgainButton.widthAnchor.constraint(equalTo: searchButton.widthAnchor),
+
+        // Center the buttons horizontally within the overlay
+        tryAgainButton.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor)
+    ])
+}
+
+
+
 let logoImage = UIImage(named: "bhargav")
 let logoImageView = UIImageView(image: logoImage)
 logoImageView.translatesAutoresizingMaskIntoConstraints = false
