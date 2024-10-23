@@ -1,13 +1,13 @@
-searchButton.topAnchor.constraint(equalTo: recognizedTextLabel.bottomAnchor, constant: 20),
-    searchButton.trailingAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor, constant: -10),
-    searchButton.heightAnchor.constraint(equalToConstant: 44),
-    searchButton.widthAnchor.constraint(equalToConstant: 120),
+ searchButton.topAnchor.constraint(equalTo: recognizedTextLabel.bottomAnchor, constant: 20),
+            searchButton.trailingAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor, constant: -10),
+            searchButton.widthAnchor.constraint(equalToConstant: 100),
+            searchButton.heightAnchor.constraint(equalToConstant: 40),
 
-    tryAgainButton.topAnchor.constraint(equalTo: recognizedTextLabel.bottomAnchor, constant: 20),
-    tryAgainButton.leadingAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor, constant: 10),
-    tryAgainButton.heightAnchor.constraint(equalTo: searchButton.heightAnchor),
-    tryAgainButton.widthAnchor.constraint(equalTo: searchButton.widthAnchor)
-
+            // Try Again button constraints (side by side)
+            tryAgainButton.topAnchor.constraint(equalTo: recognizedTextLabel.bottomAnchor, constant: 20),
+            tryAgainButton.leadingAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor, constant: 10),
+            tryAgainButton.widthAnchor.constraint(equalToConstant: 100),
+            tryAgainButton.heightAnchor.constraint(equalToConstant: 40)
 
 private func showSearchOrTryAgainButtons() {
     // Hide the logo but keep the recognized text label visible
