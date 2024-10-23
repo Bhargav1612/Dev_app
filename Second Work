@@ -7,3 +7,16 @@ NSLayoutConstraint.activate([
     logoImageView.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
     logoImageView.topAnchor.constraint(equalTo: voiceSearchOverlay.topAnchor, constant: 40) // Logo below label
 ])
+
+NSLayoutConstraint.activate([
+    // Buttons side by side with equal spacing
+    searchButton.leadingAnchor.constraint(equalTo: voiceSearchOverlay.leadingAnchor, constant: 40), // Space from left side
+    searchButton.trailingAnchor.constraint(equalTo: tryAgainButton.leadingAnchor, constant: -20), // Space between buttons
+    tryAgainButton.trailingAnchor.constraint(equalTo: voiceSearchOverlay.trailingAnchor, constant: -40), // Space from right side
+    
+    searchButton.topAnchor.constraint(equalTo: recognizedTextLabel.bottomAnchor, constant: 20), // Buttons below label
+    tryAgainButton.topAnchor.constraint(equalTo: searchButton.topAnchor), // Align both buttons' top edges
+    
+    // Ensure equal button widths
+    searchButton.widthAnchor.constraint(equalTo: tryAgainButton.widthAnchor)
+])
