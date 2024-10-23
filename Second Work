@@ -1,3 +1,18 @@
+let spacing: CGFloat = 20.0
+
+NSLayoutConstraint.activate([
+    recognizedTextLabel.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+    recognizedTextLabel.topAnchor.constraint(equalTo: voiceSearchOverlay.topAnchor, constant: spacing),
+    
+    logoImageView.heightAnchor.constraint(equalToConstant: 60),
+    logoImageView.widthAnchor.constraint(equalToConstant: 60),
+    logoImageView.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+    logoImageView.topAnchor.constraint(equalTo: recognizedTextLabel.bottomAnchor, constant: spacing),
+    
+    logoImageView.bottomAnchor.constraint(equalTo: voiceSearchOverlay.bottomAnchor, constant: -spacing)
+])
+
+
 NSLayoutConstraint.activate([
     recognizedTextLabel.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
     recognizedTextLabel.bottomAnchor.constraint(equalTo: logoImageView.topAnchor, constant: -20), // Label above the logo
