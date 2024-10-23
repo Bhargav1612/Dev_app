@@ -1,42 +1,28 @@
+let logoImage = UIImage(named: "bhargav")
+let logoImageView = UIImageView(image: logoImage)
+logoImageView.translatesAutoresizingMaskIntoConstraints = false
+voiceSearchOverlay.addSubview(logoImageView)
+
+recognizedTextLabel = UILabel() // Ensure recognizedTextLabel is instantiated
+recognizedTextLabel.text = "Listening..."
+recognizedTextLabel.translatesAutoresizingMaskIntoConstraints = false
+voiceSearchOverlay.addSubview(recognizedTextLabel)
+
+// Define a constant for equal spacing
+let spacing: CGFloat = 20.0 // Adjust this value as needed
+
 NSLayoutConstraint.activate([
-    // Logo Constraints
+    // Logo constraints
+    logoImageView.heightAnchor.constraint(equalToConstant: 60),
+    logoImageView.widthAnchor.constraint(equalToConstant: 60),
     logoImageView.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
-    logoImageView.topAnchor.constraint(equalTo: voiceSearchOverlay.topAnchor, constant: 10), // Adjust for the new height
-
-    // Label Constraints
-    label.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
-    label.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 8) // Ensure this fits within the overlay
+    logoImageView.topAnchor.constraint(equalTo: voiceSearchOverlay.topAnchor, constant: spacing),
+    
+    // Recognized text label constraints
+    recognizedTextLabel.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
+    recognizedTextLabel.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: spacing),
+    recognizedTextLabel.bottomAnchor.constraint(equalTo: voiceSearchOverlay.bottomAnchor, constant: -spacing)
 ])
-
-let label = UILabel()
-label.text = "Listening..."
-label.textColor = UIColor.white
-label.font = UIFont.boldSystemFont(ofSize: 24)
-label.translatesAutoresizingMaskIntoConstraints = false
-voiceSearchOverlay.addSubview(label)
-
-NSLayoutConstraint.activate([
-    label.centerXAnchor.constraint(equalTo: voiceSearchOverlay.centerXAnchor),
-    label.topAnchor.constraint(equalTo: logoImageView.bottomAnchor, constant: 16)
-])
-
-func startBlinkingLabel() {
-    let blinkingAnimation = CABasicAnimation(keyPath: "opacity")
-    blinkingAnimation.fromValue = 1.0
-    blinkingAnimation.toValue = 0.0
-    blinkingAnimation.duration = 0.5
-    blinkingAnimation.repeatCount = .infinity
-    blinkingAnimation.autoreverses = true
-
-    label.layer.add(blinkingAnimation, forKey: "blinking")
-}
-
-func micIconPressed() {
-    backgroundOverlayView.isHidden = false
-    voiceSearchOverlay.isHidden = false
-    startBlinkingLabel()
-    startListening()
-}
 
 
 let recognizedTextLabel = UILabel() // Create a new label for recognized text
